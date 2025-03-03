@@ -1,9 +1,3 @@
-[package]
-name = "hashassin"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-
 [workspace]
-members = ["cli" , "core"]
+members = ["cli", "hashassin-core"]
+resolver = "2"

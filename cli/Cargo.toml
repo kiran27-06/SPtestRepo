@@ -1,7 +1,9 @@
 [package]
-name = "cli"
+name = "hashassin"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 
 [dependencies]
-hashassin-core = { path = "../core" }
+clap = { version = "4.0", features = ["derive"] }
+hashassin-core = { path = "../hashassin-core" }
+
