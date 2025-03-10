@@ -5,5 +5,5 @@ edition = "2021"
 
 [dependencies]
 clap = { version = "4.0", features = ["derive"] }
-hashassin-core = { path = "../hashassin-core" }
+hashassin-core = { path = "../core" }
 

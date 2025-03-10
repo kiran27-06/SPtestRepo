@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use hashassin_core::{generate_passwords, hash_passwords, dump_hashes};
+use hashassin_core::{dump_hashes, generate_passwords, hash_passwords};
 
 #[derive(Parser)]
 #[command(name = "hashassin")]
@@ -43,11 +43,23 @@ enum Commands {
 fn main() {
     let cli = Cli::parse();
     match cli.command {
-        Commands::GenPasswords { chars, out_file, threads, num } => {
-            generate_passwords(chars, out_file, threads, num).expect("Failed to generate passwords");
+        Commands::GenPasswords {
+            chars,
+            out_file,
+            threads,
+            num,
+        } => {
+            generate_passwords(chars, out_file, threads, num)
+                .expect("Failed to generate passwords");
         }
-        Commands::GenHashes { in_file, out_file, threads, algorithm } => {
-            hash_passwords(in_file, out_file, threads, algorithm).expect("Failed to hash passwords");
+        Commands::GenHashes {
+            in_file,
+            out_file,
+            threads,
+            algorithm,
+        } => {
+            hash_passwords(in_file, out_file, threads, algorithm)
+                .expect("Failed to hash passwords");
         }
         Commands::DumpHashes { in_file } => {
             dump_hashes(in_file).expect("Failed to dump hashes");

@@ -4,6 +4,7 @@ use std::fmt;
 pub enum HashassinError {
     IoError(std::io::Error),
     InvalidAlgorithm(String),
+    InvalidOutputFormat,
 }
 
 impl fmt::Display for HashassinError {
@@ -11,6 +12,7 @@ impl fmt::Display for HashassinError {
         match self {
             HashassinError::IoError(e) => write!(f, "IO error: {}", e),
             HashassinError::InvalidAlgorithm(a) => write!(f, "Invalid algorithm: {}", a),
+            HashassinError::InvalidOutputFormat => write!(f, "Invalid output file format"),
         }
     }
 }
