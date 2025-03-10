@@ -22,13 +22,36 @@ pub fn hash_passwords(
     let algo_bytes = algo_name.as_bytes();
     let algo_len = algo_bytes.len() as u8;
 
-    let passwords: Vec<String> = reader.lines()
-        .map(|line| line.map(|s| s.trim().to_string())) // ✅ Trim spaces & newlines
-        .collect::<Result<_, _>>()?;
+    let mut passwords: Vec<String> = Vec::new();
+    let mut expected_length: Option<usize> = None;
 
-    let password_length = passwords.first().map(|p| p.len()).unwrap_or(0) as u8;
+    // Read passwords and enforce length consistency
+    for line in reader.lines() {
+        let password = line?.trim().to_string(); // Trim spaces & newlines
 
-    println!("✅ Debug: Detected password length: {}", password_length); // Debugging log
+        // Set expected length based on first password
+        match expected_length {
+            None => {
+                expected_length = Some(password.len());
+                println!("✅ Debug: Detected password length: {}", password.len()); // Debugging log
+            }
+            Some(len) => {
+                if password.len() != len {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        format!(
+                            "❌ Error: Password length mismatch in `{}` (Expected: {}, Found: {})",
+                            in_file, len, password.len()
+                        ),
+                    ));
+                }
+            }
+        }
+
+        passwords.push(password);
+    }
+
+    let password_length = expected_length.unwrap_or(0) as u8;
 
     // Writing output format header
     output.write_all(&[1])?; // Version
@@ -53,7 +76,7 @@ pub fn hash_passwords(
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
                     "Unknown algorithm",
-                ))
+                ));
             }
         };
 
@@ -62,6 +85,7 @@ pub fn hash_passwords(
 
     Ok(())
 }
+
 
 pub fn dump_hashes(in_file: String) -> std::io::Result<()> {
     let input = File::open(&in_file)?;
