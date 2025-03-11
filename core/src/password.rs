@@ -25,8 +25,7 @@ pub fn generate_passwords(chars: u8, out_file: Option<String>, threads: usize, n
                 let password: String = (0..chars)
                     .map(|_| rng.sample(Alphanumeric) as char)
                     .collect();
-                
-                
+            
                 local_passwords.push(password);
             }
 

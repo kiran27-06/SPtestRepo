@@ -33,7 +33,7 @@ pub fn hash_passwords(
         match expected_length {
             None => {
                 expected_length = Some(password.len());
-                println!("✅ Debug: Detected password length: {}", password.len()); // Debugging log
+                println!("✅ Debug: Detected password length: {}", password.len()); // Debug
             }
             Some(len) => {
                 if password.len() != len {
