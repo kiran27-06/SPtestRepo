@@ -4,7 +4,12 @@ use std::io::{self, Write};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-pub fn generate_passwords(chars: u8, out_file: Option<String>, threads: usize, num: usize) -> io::Result<()> {
+pub fn generate_passwords(
+    chars: u8,
+    out_file: Option<String>,
+    threads: usize,
+    num: usize,
+) -> io::Result<()> {
     let num_per_thread = num / threads; // Divide workload
     let remainder = num % threads;
 
@@ -15,7 +20,11 @@ pub fn generate_passwords(chars: u8, out_file: Option<String>, threads: usize, n
         let passwords = Arc::clone(&passwords);
         let chars = chars as usize;
 
-        let count = if i == 0 { num_per_thread + remainder } else { num_per_thread };
+        let count = if i == 0 {
+            num_per_thread + remainder
+        } else {
+            num_per_thread
+        };
 
         let handle = thread::spawn(move || {
             let mut local_passwords = Vec::new();
@@ -25,7 +34,7 @@ pub fn generate_passwords(chars: u8, out_file: Option<String>, threads: usize, n
                 let password: String = (0..chars)
                     .map(|_| rng.sample(Alphanumeric) as char)
                     .collect();
-            
+
                 local_passwords.push(password);
             }
 

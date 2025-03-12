@@ -2,7 +2,7 @@ use md5::Md5;
 use scrypt::{scrypt, Params};
 use sha2::{Digest, Sha256, Sha512};
 use std::fs::{File, OpenOptions};
-use std::io::{self, BufRead, BufReader, Read, Write};
+use std::io::{self, BufRead, BufReader, Write};
 
 pub fn hash_passwords(
     in_file: String,
@@ -15,13 +15,10 @@ pub fn hash_passwords(
     let mut output = OpenOptions::new()
         .write(true)
         .create(true)
-        .truncate(true)
+        .truncate(true) // Ensure file is overwritten
         .open(&out_file)?;
 
     let algo_name = algorithm.to_lowercase();
-    let algo_bytes = algo_name.as_bytes();
-    let algo_len = algo_bytes.len() as u8;
-
     let mut passwords: Vec<String> = Vec::new();
     let mut expected_length: Option<usize> = None;
 
@@ -33,7 +30,7 @@ pub fn hash_passwords(
         match expected_length {
             None => {
                 expected_length = Some(password.len());
-                println!("✅ Debug: Detected password length: {}", password.len()); // Debug
+                println!("✅ Debug: Detected password length: {}", password.len());
             }
             Some(len) => {
                 if password.len() != len {
@@ -41,7 +38,9 @@ pub fn hash_passwords(
                         io::ErrorKind::InvalidData,
                         format!(
                             "❌ Error: Password length mismatch in `{}` (Expected: {}, Found: {})",
-                            in_file, len, password.len()
+                            in_file,
+                            len,
+                            password.len()
                         ),
                     ));
                 }
@@ -51,13 +50,12 @@ pub fn hash_passwords(
         passwords.push(password);
     }
 
-    let password_length = expected_length.unwrap_or(0) as u8;
+    let password_length = expected_length.unwrap_or(0);
 
-    // Writing output format header
-    output.write_all(&[1])?; // Version
-    output.write_all(&[algo_len])?; // Algorithm length
-    output.write_all(algo_bytes)?;
-    output.write_all(&[password_length])?; // ✅ No newline after password length
+    // ✅ Write in the **expected human-readable format**
+    writeln!(output, "VERSION: 1")?;
+    writeln!(output, "ALGORITHM: {}", algo_name)?;
+    writeln!(output, "PASSWORD LENGTH: {}", password_length)?;
 
     for password in passwords {
         let hash = match algo_name.as_str() {
@@ -86,34 +84,25 @@ pub fn hash_passwords(
     Ok(())
 }
 
-
 pub fn dump_hashes(in_file: String) -> std::io::Result<()> {
     let input = File::open(&in_file)?;
-    let mut reader = BufReader::new(input);
+    let reader = BufReader::new(input);
 
-    let mut version = [0u8; 1];
-    let mut algo_len = [0u8; 1];
+    let mut lines = reader.lines();
 
-    // Read version
-    reader.read_exact(&mut version)?;
+    // Read and print required headers
+    if let Some(Ok(version_line)) = lines.next() {
+        println!("{}", version_line);
+    }
+    if let Some(Ok(algo_line)) = lines.next() {
+        println!("{}", algo_line);
+    }
+    if let Some(Ok(length_line)) = lines.next() {
+        println!("{}", length_line);
+    }
 
-    // Read algorithm length
-    reader.read_exact(&mut algo_len)?;
-
-    // Read algorithm name
-    let mut algo_name = vec![0u8; algo_len[0] as usize];
-    reader.read_exact(&mut algo_name)?;
-
-    // Read password length
-    let mut password_length = [0u8; 1];
-    reader.read_exact(&mut password_length)?;
-
-    println!("VERSION: {}", version[0]);
-    println!("ALGORITHM: {}", String::from_utf8_lossy(&algo_name));
-    println!("PASSWORD LENGTH: {}", password_length[0]);
-
-    // Read and print hash data line by line
-    for line in reader.lines() {
+    // Read and print hashes line by line
+    for line in lines {
         let hash = line?;
         println!("{}", hash);
     }
