@@ -49,6 +49,10 @@ fn main() {
             threads,
             num,
         } => {
+            if chars == 0 || num == 0 || threads == 0 {
+                eprintln!("Error: All values must be greater than zero!");
+                return;
+            }
             generate_passwords(chars, out_file, threads, num)
                 .expect("Failed to generate passwords");
         }

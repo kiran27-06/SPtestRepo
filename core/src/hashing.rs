@@ -1,110 +1,124 @@
 use md5::Md5;
 use scrypt::{scrypt, Params};
 use sha2::{Digest, Sha256, Sha512};
-use std::fs::{File, OpenOptions};
-use std::io::{self, BufRead, BufReader, Write};
+use std::fs::{File, OpenOptions}; // ✅ Added OpenOptions
+use std::io::{self, BufRead, BufReader, Read, Write};
+use std::sync::{Arc, Mutex}; // ✅ Added Arc and Mutex
+use std::thread; // ✅ Added thread
 
 pub fn hash_passwords(
     in_file: String,
     out_file: String,
-    _threads: usize,
+    threads: usize,
     algorithm: String,
 ) -> io::Result<()> {
     let input = File::open(&in_file)?;
     let reader = BufReader::new(input);
-    let mut output = OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(true) // Ensure file is overwritten
-        .open(&out_file)?;
+    
+    let passwords: Vec<String> = reader.lines().collect::<Result<_, _>>()?;
+    let password_length = passwords.first().map_or(0, |p| p.len());
 
-    let algo_name = algorithm.to_lowercase();
-    let mut passwords: Vec<String> = Vec::new();
-    let mut expected_length: Option<usize> = None;
+    let passwords = Arc::new(passwords);
+    let hashed_passwords = Arc::new(Mutex::new(Vec::new()));
 
-    // Read passwords and enforce length consistency
-    for line in reader.lines() {
-        let password = line?.trim().to_string(); // Trim spaces & newlines
+    let mut handles = Vec::new();
+    let chunk_size = passwords.len() / threads + 1;
 
-        // Set expected length based on first password
-        match expected_length {
-            None => {
-                expected_length = Some(password.len());
-                println!("✅ Debug: Detected password length: {}", password.len());
+    for i in 0..threads {
+        let passwords = Arc::clone(&passwords);
+        let hashed_passwords = Arc::clone(&hashed_passwords);
+        let algo_name = algorithm.clone();
+
+        let handle = thread::spawn(move || {
+            let mut local_hashes = Vec::new();
+            let start = i * chunk_size;
+            let end = std::cmp::min(start + chunk_size, passwords.len());
+
+            for j in start..end {
+                let password = &passwords[j];
+                let hash = match algo_name.as_str() {
+                    "md5" => Md5::digest(password.as_bytes()).to_vec(),
+                    "sha256" => Sha256::digest(password.as_bytes()).to_vec(),
+                    "sha3-512" => Sha512::digest(password.as_bytes()).to_vec(),
+                    "scrypt" => {
+                        let mut output = [0u8; 64];
+                        let params = Params::new(15, 8, 1).unwrap();
+                        scrypt(password.as_bytes(), b"salt", &params, &mut output).unwrap();
+                        output.to_vec()
+                    }
+                    _ => return,
+                };
+                local_hashes.push(hash);
             }
-            Some(len) => {
-                if password.len() != len {
-                    return Err(io::Error::new(
-                        io::ErrorKind::InvalidData,
-                        format!(
-                            "❌ Error: Password length mismatch in `{}` (Expected: {}, Found: {})",
-                            in_file,
-                            len,
-                            password.len()
-                        ),
-                    ));
-                }
-            }
-        }
 
-        passwords.push(password);
+            let mut global_hashes = hashed_passwords.lock().unwrap();
+            global_hashes.extend(local_hashes);
+        });
+
+        handles.push(handle);
     }
 
-    let password_length = expected_length.unwrap_or(0);
+    for handle in handles {
+        handle.join().unwrap();
+    }
 
-    // ✅ Write in the **expected human-readable format**
-    writeln!(output, "VERSION: 1")?;
-    writeln!(output, "ALGORITHM: {}", algo_name)?;
-    writeln!(output, "PASSWORD LENGTH: {}", password_length)?;
+    let hashed_passwords = Arc::try_unwrap(hashed_passwords).unwrap().into_inner().unwrap();
 
-    for password in passwords {
-        let hash = match algo_name.as_str() {
-            "md5" => format!("{:x}", Md5::digest(password.as_bytes())),
-            "sha256" => format!("{:x}", Sha256::digest(password.as_bytes())),
-            "sha3-512" => format!("{:x}", Sha512::digest(password.as_bytes())),
-            "scrypt" => {
-                let mut output = [0u8; 64];
-                let params = Params::new(15, 8, 1).unwrap();
-                scrypt(password.as_bytes(), b"salt", &params, &mut output)
-                    .map_err(|_| io::Error::new(io::ErrorKind::Other, "Scrypt hashing failed"))?;
+    let mut output = OpenOptions::new().write(true).create(true).truncate(true).open(out_file)?;
+    output.write_all(&[1])?; // VERSION
+    output.write_all(&[algorithm.len() as u8])?; // ALGORITHM LENGTH
+    output.write_all(algorithm.as_bytes())?; // ALGORITHM NAME
+    output.write_all(&[password_length as u8])?; // PASSWORD LENGTH
 
-                hex::encode(output)
-            }
-            _ => {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidInput,
-                    "Unknown algorithm",
-                ));
-            }
-        };
-
-        writeln!(output, "{}", hash)?;
+    for hash in hashed_passwords {
+        output.write_all(&hash)?;  // ✅ Correctly store binary hash data
     }
 
     Ok(())
 }
 
-pub fn dump_hashes(in_file: String) -> std::io::Result<()> {
-    let input = File::open(&in_file)?;
-    let reader = BufReader::new(input);
+pub fn dump_hashes(in_file: String) -> io::Result<()> {
+    let mut input = File::open(&in_file)?;
+    let mut buffer = Vec::new();
+    input.read_to_end(&mut buffer)?;
 
-    let mut lines = reader.lines();
-
-    // Read and print required headers
-    if let Some(Ok(version_line)) = lines.next() {
-        println!("{}", version_line);
-    }
-    if let Some(Ok(algo_line)) = lines.next() {
-        println!("{}", algo_line);
-    }
-    if let Some(Ok(length_line)) = lines.next() {
-        println!("{}", length_line);
+    if buffer.len() < 3 {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "Invalid hash file format",
+        ));
     }
 
-    // Read and print hashes line by line
-    for line in lines {
-        let hash = line?;
-        println!("{}", hash);
+    let version = buffer[0];
+    let algo_length = buffer[1] as usize;
+    let algo_name = String::from_utf8(buffer[2..2 + algo_length].to_vec()).map_err(|_| {
+        io::Error::new(
+            io::ErrorKind::InvalidData,
+            "Invalid algorithm name encoding",
+        )
+    })?;
+    let password_length = buffer[2 + algo_length];
+
+    println!("VERSION: {}", version);
+    println!("ALGORITHM: {}", algo_name);
+    println!("PASSWORD LENGTH: {}", password_length);
+
+    let hash_data = &buffer[(3 + algo_length)..];
+    let hash_size = match algo_name.as_str() {
+        "md5" => 16,
+        "sha256" => 32,
+        "sha3-512" => 64,
+        "scrypt" => 64,
+        _ => {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "Unknown algorithm",
+            ))
+        }
+    };
+
+    for chunk in hash_data.chunks(hash_size) {
+        println!("{}", hex::encode(chunk));
     }
 
     Ok(())

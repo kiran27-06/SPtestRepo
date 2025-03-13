@@ -10,7 +10,7 @@ pub fn generate_passwords(
     threads: usize,
     num: usize,
 ) -> io::Result<()> {
-    let num_per_thread = num / threads; // Divide workload
+    let num_per_thread = num / threads;
     let remainder = num % threads;
 
     let passwords = Arc::new(Mutex::new(Vec::new()));
@@ -20,11 +20,7 @@ pub fn generate_passwords(
         let passwords = Arc::clone(&passwords);
         let chars = chars as usize;
 
-        let count = if i == 0 {
-            num_per_thread + remainder
-        } else {
-            num_per_thread
-        };
+        let count = num_per_thread + if i < remainder { 1 } else { 0 };
 
         let handle = thread::spawn(move || {
             let mut local_passwords = Vec::new();
