@@ -5,6 +5,9 @@ pub enum HashassinError {
     IoError(std::io::Error),
     InvalidAlgorithm(String),
     InvalidOutputFormat,
+    InvalidParameters(String),
+    ThreadLockError,
+    ThreadJoinError,
 }
 
 impl fmt::Display for HashassinError {
@@ -13,6 +16,9 @@ impl fmt::Display for HashassinError {
             HashassinError::IoError(e) => write!(f, "IO error: {}", e),
             HashassinError::InvalidAlgorithm(a) => write!(f, "Invalid algorithm: {}", a),
             HashassinError::InvalidOutputFormat => write!(f, "Invalid output file format"),
+            HashassinError::InvalidParameters(msg) => write!(f, "Invalid parameters: {}", msg),
+            HashassinError::ThreadLockError => write!(f, "Thread lock error"),
+            HashassinError::ThreadJoinError => write!(f, "Thread join error"),
         }
     }
 }

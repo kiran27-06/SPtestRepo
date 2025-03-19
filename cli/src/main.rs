@@ -1,5 +1,6 @@
 use clap::{Parser, Subcommand};
 use hashassin_core::{dump_hashes, generate_passwords, hash_passwords};
+use tracing::{error, info};
 
 #[derive(Parser)]
 #[command(name = "hashassin")]
@@ -11,7 +12,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Generate random passwords
+    //generating random passwords
     GenPasswords {
         #[arg(short, long, default_value_t = 4)]
         chars: u8,
@@ -22,7 +23,7 @@ enum Commands {
         #[arg(short, long)]
         num: usize,
     },
-    /// Generate password hashes
+    //generating the hashes
     GenHashes {
         #[arg(short, long)]
         in_file: String,
@@ -33,7 +34,7 @@ enum Commands {
         #[arg(short, long)]
         algorithm: String,
     },
-    /// Dump hashed passwords
+    //dumping the hashed passwords
     DumpHashes {
         #[arg(short, long)]
         in_file: String,
@@ -41,6 +42,8 @@ enum Commands {
 }
 
 fn main() {
+    tracing_subscriber::fmt::init();
+
     let cli = Cli::parse();
     match cli.command {
         Commands::GenPasswords {
@@ -50,11 +53,14 @@ fn main() {
             num,
         } => {
             if chars == 0 || num == 0 || threads == 0 {
-                eprintln!("Error: All values must be greater than zero!");
+                error!("Error: All values must be greater than zero!");
                 return;
             }
-            generate_passwords(chars, out_file, threads, num)
-                .expect("Failed to generate passwords");
+            if let Err(e) = generate_passwords(chars, out_file.clone(), threads, num) {
+                error!("Failed to generate passwords: {:?}", e);
+            } else {
+                info!("Passwords generated successfully.{:?}", out_file);
+            }
         }
         Commands::GenHashes {
             in_file,
@@ -62,11 +68,26 @@ fn main() {
             threads,
             algorithm,
         } => {
-            hash_passwords(in_file, out_file, threads, algorithm)
-                .expect("Failed to hash passwords");
+            if let Err(e) = hash_passwords(
+                in_file.clone(),
+                out_file.clone(),
+                threads,
+                algorithm.clone(),
+            ) {
+                error!("Failed to hash passwords: {:?}", e);
+            } else {
+                info!(
+                    "Hashes generated successfully. Algorithm: {} Output: {}",
+                    algorithm, out_file
+                );
+            }
         }
         Commands::DumpHashes { in_file } => {
-            dump_hashes(in_file).expect("Failed to dump hashes");
+            if let Err(e) = dump_hashes(in_file.clone()) {
+                error!("Failed to dump hashes: {:?}", e);
+            } else {
+                info!("Hashes dumped successfully from {}", in_file);
+            }
         }
     }
 }

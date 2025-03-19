@@ -6,20 +6,6 @@ Kiran & Manmath
 
 ### **Implementation Plan for Hashassin Project**
 
----
-
-#### **Phase 1: Setup and Project Structure (Feb 10 - Feb 14)**
-- [ ] Create a GitHub repository from the provided GitHub Classroom link.
-- [ ] Setup project structure:
-  - [ ] Create a Rust workspace with two crates:
-    - `cli` (binary crate)
-    - `core` (library crate)
-- [ ] Ensure `core` crate can be accessed using `use hashassin_core::*`
-- [ ] Initialize Cargo projects inside respective directories.
-- [ ] Add basic README.md, CREDITS.md, and HONESTY.md.
-
----
-
 #### **Phase 2: Implement `gen-passwords` Command (Feb 15 - Feb 20)**
 - [ ] Implement random password generation:
   - [ ] Use ASCII characters (both cases, punctuation, and spaces).
